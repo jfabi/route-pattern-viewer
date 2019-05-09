@@ -34,7 +34,7 @@ jQuery(document).ready(function($) {
             var routePatternsData = routePatternsJSON['data'];
             var display = '';
             console.log(routePatternsData)
-            for (j = 1; j < routePatternsData.length; j++) {
+            for (j = 0; j < routePatternsData.length; j++) {
                 newRoutePattern = {
                     route_pattern_id: routePatternsData[j]['id'],
                     route_id: routePatternsData[j]['relationships']['route']['data']['id'],
@@ -45,23 +45,6 @@ jQuery(document).ready(function($) {
                     representative_trip_id: routePatternsData[j]['relationships']['representative_trip']['data']['id'],
                 };
                 routePatternArray.push(newRoutePattern)
-            }
-
-
-            stationJson = $.csv.toArrays(csvd);
-            var display = '';
-            console.log(stationJson)
-            for (j = 1; j < stationJson.length; j++) {
-                newStation = {
-                    route_pattern_id: stationJson[j][0],
-                    route_id: stationJson[j][1],
-                    direction_id: stationJson[j][2],
-                    route_pattern_name: stationJson[j][3],
-                    route_pattern_time_desc: stationJson[j][4],
-                    route_pattern_typicality: stationJson[j][5],
-                    representative_trip_id: stationJson[j][7],
-                };
-                routePatternArray.push(newStation)
             }
         }
     });
@@ -162,6 +145,7 @@ function nextStationUpdate() {
         matchedRoutePatternArray = []
         for (var i = 0; i < routePatternArray.length; i++) { //Loop trough elements
             if (routePatternArray[i]['route_id'] == route_id) {
+                representative_trip_id = routePatternArray[i]['representative_trip_id'];
                 route_pattern_typicality = ""
                 route_pattern_typicality = "Regular pattern for this route"
                 if (routePatternArray[i]['route_pattern_typicality'] == 0) {
@@ -177,6 +161,8 @@ function nextStationUpdate() {
                     route_pattern_typicality = "Irregular service (planned detours, snow routes, bus shuttles)"
                 }
 
+                var list_of_stops = findTripStops(representative_trip_id);
+
                 routePatternMatch = {
                     route_pattern_id: routePatternArray[i]['route_pattern_id'],
                     route_id: routePatternArray[i]['route_id'],
@@ -184,7 +170,8 @@ function nextStationUpdate() {
                     route_pattern_name: routePatternArray[i]['route_pattern_name'],
                     route_pattern_time_desc: routePatternArray[i]['route_pattern_time_desc'],
                     route_pattern_typicality: route_pattern_typicality,
-                    representative_trip_id: routePatternArray[i]['representative_trip_id'],
+                    representative_trip_id: representative_trip_id,
+                    list_of_stops: list_of_stops,
                 }
                 matchedRoutePatternArray.push(routePatternMatch)
             }
@@ -203,12 +190,49 @@ function nextStationUpdate() {
                 if (matchedRoutePatternArray[i]['route_pattern_time_desc'] != null) {
                     route_pattern_time_desc_part = '<br>Restricted hours of service: <b>' + matchedRoutePatternArray[i]['route_pattern_time_desc'] + '</b>'
                 }
-                route_pattern_part = route_pattern_part + '<br><div style="background-color: #165C96 !important ; padding: 6px; border-radius: 8px; color: white !important;><span style="font-size: 30px !important;>Route pattern name: <b>' + matchedRoutePatternArray[i]['route_pattern_name'] + '</b><br><br>Route pattern ID: <b>' + matchedRoutePatternArray[i]['route_pattern_id'] + '</b>' + route_pattern_time_desc_part + '<br>Typicality: <b>' + matchedRoutePatternArray[i]['route_pattern_typicality'] + '</b><br>Representative trip ID: <b><a href="https://api-v3.mbta.com/schedules?filter[trip]=' + matchedRoutePatternArray[i]['representative_trip_id'] + '">' + matchedRoutePatternArray[i]['representative_trip_id'] + ' (link to API stops)</a></b></span></div>'
+                route_pattern_part = route_pattern_part + '<br><div style="background-color: #165C96 !important ; padding: 6px; border-radius: 8px; color: white !important;>'
+                route_pattern_part = route_pattern_part + '<span style="font-size: 30px !important;>Route pattern name: <b>'
+                route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_name']
+                route_pattern_part = route_pattern_part + '</b><br><br>Route pattern ID: <b>'
+                route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_id'] + '</b>'
+                route_pattern_part = route_pattern_part + route_pattern_time_desc_part + '<br>Typicality: <b>'
+                route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_typicality'] + '</b>'
+                route_pattern_part = route_pattern_part + '<br>' + matchedRoutePatternArray[i]['list_of_stops']
+                route_pattern_part = route_pattern_part + '</span></div>'
             }
             document.getElementById('map').innerHTML = route_header_part + route_pattern_part
         }, 1000);
     }, 100);
 };
+
+function findTripStops(trip_id) {
+    var scheduleURL = 'https://api-v3.mbta.com/schedules?filter[trip]=' + trip_id + '&include=stop';
+    var tripStops = '';
+
+    jQuery(document).ready(function($) {
+        $.ajax({
+            url: scheduleURL,
+            dataType: 'json',
+            async: false,
+            success: function (scheduleJSON) {
+                var scheduleData = scheduleJSON['data'];
+                var stopsData = scheduleJSON['included'];
+                for (j = 0; j < scheduleData.length; j++) {
+                    stop_id = scheduleData[j]['relationships']['stop']['data']['id'];
+                    stop_name = '';
+                    for (k = 0; k < stopsData.length; k++) {
+                        if (stopsData[k]['id'] == stop_id) {
+                            stop_name = stopsData[k]['attributes']['name'];
+                            break;
+                        }
+                    }
+                    tripStops = tripStops + '<br>' + stop_name + ' (<a href="https://www.mbta.com/stops/' + stop_id + '">' + stop_id + '</a>)'
+                }
+            }
+        });
+    });
+    return tripStops; 
+}
 
 // GOOD SOURCES
 // http://stackoverflow.com/questions/30093786/jquery-how-to-automatically-insert-colon-after-entering-2-numeric-digits
