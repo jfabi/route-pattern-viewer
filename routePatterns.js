@@ -1,6 +1,6 @@
 /*
 Written by Joshua Fabian
-Last updated 25 Jan 2019
+Last updated 9 May 2019
 jfabian@mbta.com
 */
 
@@ -21,13 +21,33 @@ var routePatternArray = []
 var map = null
 var currentMarkers = []
 
-var stationSelectorString = 'Select route <select id="stationInput">'
+var routeSelectorString = 'Select route <select id="stationInput">'
+var routesURL = 'https://api-v3.mbta.com/routes'
+var routePatternsURL = 'https://api-v3.mbta.com/route-patterns'
 
 jQuery(document).ready(function($) {
     $.ajax({
-        url: 'route_patterns.csv',
+        url: routePatternsURL,
+        dataType: 'json',
         async: false,
-        success: function (csvd) {
+        success: function (routePatternsJSON) {
+            var routePatternsData = routePatternsJSON['data'];
+            var display = '';
+            console.log(routePatternsData)
+            for (j = 1; j < routePatternsData.length; j++) {
+                newRoutePattern = {
+                    route_pattern_id: routePatternsData[j]['id'],
+                    route_id: routePatternsData[j]['relationships']['route']['data']['id'],
+                    direction_id: routePatternsData[j]['attributes']['direction_id'],
+                    route_pattern_name: routePatternsData[j]['attributes']['name'],
+                    route_pattern_time_desc: routePatternsData[j]['attributes']['time_desc'],
+                    route_pattern_typicality: routePatternsData[j]['attributes']['typicality'],
+                    representative_trip_id: routePatternsData[j]['relationships']['representative_trip']['data']['id'],
+                };
+                routePatternArray.push(newRoutePattern)
+            }
+
+
             stationJson = $.csv.toArrays(csvd);
             var display = '';
             console.log(stationJson)
@@ -51,39 +71,43 @@ console.log(routePatternArray)
 
 jQuery(document).ready(function($) {
     $.ajax({
-        url: 'routes.csv',
+        url: routesURL,
+        dataType: 'json',
         async: false,
-        success: function (csvd) {
-            stationJson = $.csv.toArrays(csvd);
-            var display = '';
-            var stationSelectorString = 'Select route <select id="stationInput">'
+        success: function (stationsJSON) {
+            var routesData = stationsJSON['data'];
+            var routeSelectorString = 'Select route <select id="stationInput">'
 
             // iterate over all observed headways at this station
-            console.log(stationJson)
-            for (j = 1; j < stationJson.length; j++) {
-                var route_id = stationJson[j][0];
-                var route_name = stationJson[j][3];
-                if (stationJson[j][2] != "") {
-                    route_name = stationJson[j][2];
+            console.log(routesData)
+            for (j = 0; j < routesData.length; j++) {
+                var route_id = routesData[j]['id'];
+                var route_name = routesData[j]['attributes']['long_name'];
+                if (routesData[j]['attributes']['short_name'] != '') {
+                    route_name = routesData[j]['attributes']['short_name'];
                 }
-                newStation = {
-                    route_id: stationJson[j][0],
-                    route_short_name: stationJson[j][2],
-                    route_long_name: stationJson[j][3],
-                    route_url: stationJson[j][7],
-                    route_color: stationJson[j][8],
-                    route_text_color: stationJson[j][9],
-                    line_id: stationJson[j][11],
-                    listed_route: stationJson[j][12],
-                    route_desc: stationJson[j][4],
-                    route_fare_class: stationJson[j][5],
+                var line_id = null;
+                if (routesData[j]['relationships']['line']['data'] != null) {
+                    line_id = routesData[j]['relationships']['line']['data']['id'];
+                }
+                newRoute = {
+                    route_id: route_id,
+                    route_short_name: routesData[j]['attributes']['short_name'],
+                    route_long_name: routesData[j]['attributes']['long_name'],
+                    route_url: 'https://www.mbta.com/schedules/' + route_id,
+                    route_color: routesData[j]['attributes']['color'],
+                    route_text_color: routesData[j]['attributes']['text_color'],
+                    line_id: line_id,
+                    listed_route: 'UNKNOWN - NOT IN MBTA API',
+                    route_desc: routesData[j]['attributes']['description'],
+                    route_fare_class: routesData[j]['attributes']['fare_class'],
                 };
-                stationSelectorString = stationSelectorString + '<option value="' + route_id + '">' + route_name + '</option>';
-                routeArray.push(newStation)
+                routeSelectorString = routeSelectorString + '<option value="' + route_id + '">' + route_name + '</option>';
+                routeArray.push(newRoute)
             }
             console.log(routeArray)
-            stationSelectorString = stationSelectorString + '</select>   <button onclick="nextStationUpdate()">View route patterns for selected route</button>';
-            document.getElementById('stationSelector').innerHTML = stationSelectorString;
+            routeSelectorString = routeSelectorString + '</select>   <button onclick="nextStationUpdate()">View route patterns for selected route</button>';
+            document.getElementById('stationSelector').innerHTML = routeSelectorString;
         }
     });
 });
@@ -176,7 +200,7 @@ function nextStationUpdate() {
 
             for (var i = 0; i < matchedRoutePatternArray.length; i++) {
                 route_pattern_time_desc_part = '';
-                if (matchedRoutePatternArray[i]['route_pattern_time_desc'] != '') {
+                if (matchedRoutePatternArray[i]['route_pattern_time_desc'] != null) {
                     route_pattern_time_desc_part = '<br>Restricted hours of service: <b>' + matchedRoutePatternArray[i]['route_pattern_time_desc'] + '</b>'
                 }
                 route_pattern_part = route_pattern_part + '<br><div style="background-color: #165C96 !important ; padding: 6px; border-radius: 8px; color: white !important;><span style="font-size: 30px !important;>Route pattern name: <b>' + matchedRoutePatternArray[i]['route_pattern_name'] + '</b><br><br>Route pattern ID: <b>' + matchedRoutePatternArray[i]['route_pattern_id'] + '</b>' + route_pattern_time_desc_part + '<br>Typicality: <b>' + matchedRoutePatternArray[i]['route_pattern_typicality'] + '</b><br>Representative trip ID: <b><a href="https://api-v3.mbta.com/schedules?filter[trip]=' + matchedRoutePatternArray[i]['representative_trip_id'] + '">' + matchedRoutePatternArray[i]['representative_trip_id'] + ' (link to API stops)</a></b></span></div>'
