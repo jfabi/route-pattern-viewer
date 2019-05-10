@@ -197,7 +197,11 @@ function nextStationUpdate() {
                 route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_id'] + '</b>'
                 route_pattern_part = route_pattern_part + route_pattern_time_desc_part + '<br>Typicality: <b>'
                 route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_typicality'] + '</b>'
-                route_pattern_part = route_pattern_part + '<br>' + matchedRoutePatternArray[i]['list_of_stops']
+                route_pattern_part = route_pattern_part + '<br>'
+                route_pattern_part = route_pattern_part + '<span id="listOfStops' + matchedRoutePatternArray[i]['route_pattern_id']
+                route_pattern_part = route_pattern_part + '" style="display: none;">' + matchedRoutePatternArray[i]['list_of_stops'] + '<br></span>'
+                route_pattern_part = route_pattern_part + '<br><button onclick="toggleListOfStops(\''
+                route_pattern_part = route_pattern_part + matchedRoutePatternArray[i]['route_pattern_id'] + '\')">Toggle display of stops</button>'
                 route_pattern_part = route_pattern_part + '</span></div>'
             }
             document.getElementById('map').innerHTML = route_header_part + route_pattern_part
@@ -234,7 +238,11 @@ function findTripStops(trip_id) {
     return tripStops; 
 }
 
-// GOOD SOURCES
-// http://stackoverflow.com/questions/30093786/jquery-how-to-automatically-insert-colon-after-entering-2-numeric-digits
-// http://www.d3noob.org/2013/01/format-date-time-axis-with-specified.html
-//
+function toggleListOfStops(route_pattern_id) {
+    var listOfStopsSpan = document.getElementById('listOfStops' + route_pattern_id);
+    if (listOfStopsSpan.style.display == 'inline') {
+        listOfStopsSpan.style.display = 'none';
+    } else {
+        listOfStopsSpan.style.display = 'inline';
+    }
+}
